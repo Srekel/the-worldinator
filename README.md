@@ -7,16 +7,23 @@ Written in C or C-ish C++.
 
 Work in progress - do not expect particularly nice code. I'm doing this to learn and because it's fun. :)
 
-License
--------
-
-Dual licensed - Choose either MIT or Public Domain, whichever you prefer.
-
-External libraries retain their own license.
-
 Latest generated world
 ----------------------
 ![](project/test2d.png)
+
+TODO
+----
+
+* Histogram matching
+* Better gradients
+* Distance to equator/poles
+* Distance to water
+* Rivers
+* Lighting
+* More biomes
+
+... and lots more. This is mainly a reminder to me for things to do in the "near" future.
+
 
 Libs used
 ---------
@@ -31,3 +38,10 @@ References
 1. https://heredragonsabound.blogspot.se/
 1. https://imgur.com/a/bh2iy
 1. http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/
+
+License
+-------
+
+Dual licensed - Choose either MIT or Public Domain, whichever you prefer.
+
+External libraries retain their own license.

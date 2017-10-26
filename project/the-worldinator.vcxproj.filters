@@ -18,5 +18,8 @@
     <ClInclude Include="..\src\external\open-simplex-noise\open-simplex-noise.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\external\jc_voronoi\jc_voronoi.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,34 +1,17 @@
-// TODO
-// histogram matching
-// gradients
-// distance to equator/poles
-// distance to water
-// rivers
-// lighting
-// more biomes
-// weighted biomes -- DONE
-
 #include <stdio.h>
-#if ( ( __STDC_VERSION__ >= 199901L ) || ( _MSC_VER ) )
-#include <stdint.h>
-#endif
-#include <Windows.h>
-#include <errno.h>
-#include <string.h>
 
 #define STBI_WRITE_NO_STDIO
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb/stb_image_write.h>
 
-// #define JC_VORONOI_IMPLEMENTATION
-// #define JCV_REAL_TYPE double
-// #define JCV_FABS fabs
-// #define JCV_ATAN2 atan2
-// #include "jc_voronoi/jc_voronoi.h"
+#define JC_VORONOI_IMPLEMENTATION
+#define JCV_REAL_TYPE double
+#define JCV_FABS fabs
+#define JCV_ATAN2 atan2
+#include "jc_voronoi/jc_voronoi.h"
 
 #include "open-simplex-noise/open-simplex-noise.h"
 
-// #define SINGLE_OCTAVE
 #define WIDTH 1024
 #define HEIGHT 1024
 #define PI 3.14159265
@@ -73,6 +56,10 @@ lerp( double a, double b, double t ) {
 // };
 
 #define CLAMP( a, min, max ) a = ( a < min ? min : ( a > max ? max : a ) );
+
+// void
+// generate_voronoi() {
+// }
 
 void
 generate_heightmap( int     height,
@@ -145,19 +132,11 @@ generate_gradient( double* heightmap, double* gradient_map, int height, int widt
     int sobel_filter_x[3][3] = { { -1, 0, 1 }, { -2, 0, 2 }, { -1, 0, 1 } };
     int sobel_filter_y[3][3] = { { -1, -2, -1 }, { 0, 0, 0 }, { 1, 2, 1 } };
 
-    double pixel_value_x;
-    double pixel_value_y;
-    // double min, max;
-    int x, y, x2, y2; /* Loop variable */
-
-    /* Maximum values calculation after filtering*/
-    printf( "Now, filtering of input image is performed\n\n" );
-    // min = DBL_MAX;
-    // max = -DBL_MAX;
+    int x, y, x2, y2;
     for ( y = 1; y < height - 1; y++ ) {
         for ( x = 1; x < width - 1; x++ ) {
-            pixel_value_x = 0.0;
-            pixel_value_y = 0.0;
+            double pixel_value_x = 0.0;
+            double pixel_value_y = 0.0;
             for ( y2 = -1; y2 <= 1; y2++ ) {
                 for ( x2 = -1; x2 <= 1; x2++ ) {
                     pixel_value_x +=
@@ -168,29 +147,15 @@ generate_gradient( double* heightmap, double* gradient_map, int height, int widt
             }
             gradient_map[x + y * width] =
               sqrt( pixel_value_x * pixel_value_x + pixel_value_y * pixel_value_y );
-            // if ( pixel_value < min )
-            //     min = pixel_value;
-            // if ( pixel_value > max )
-            //     max = pixel_value;
         }
     }
 }
 
-int
-main() {
-    int                 x, y;
-    uint32_t*           image2d      = malloc( HEIGHT * WIDTH * sizeof( uint32_t ) );
-    double*             output       = malloc( HEIGHT * WIDTH * sizeof( double ) );
-    double*             gradient_map = malloc( HEIGHT * WIDTH * sizeof( double ) );
+void
+islandify_heightmap( double* heightmap ) {
     struct osn_context* ctx;
     open_simplex_noise( 46512, &ctx );
-
-    double persistence  = 3;
-    int    num_octaves  = 4;
-    int    feature_size = 100;
-    generate_heightmap( HEIGHT, WIDTH, feature_size, persistence, num_octaves, output );
-    generate_gradient( output, gradient_map, HEIGHT, WIDTH );
-
+    int x, y;
     for ( y = 0; y < HEIGHT; y++ ) {
         for ( x = 0; x < WIDTH; x++ ) {
             double distance_from_center = sqrt( fabs( x - WIDTH / 2 ) * fabs( x - WIDTH / 2 ) +
@@ -199,7 +164,7 @@ main() {
             double radius_noise = open_simplex_noise2( ctx, (double)x / 50, (double)y / 50 );
             double radius_threshold_min = HEIGHT * ( radius_noise * 0.1 + 0.3 );
             double radius_threshold_max = HEIGHT * ( radius_noise * 0.1 + 0.4 );
-            // output[x + y * HEIGHT]      = radius_noise;
+            // heightmap[x + y * HEIGHT]      = radius_noise;
 
             if ( distance_from_center > radius_threshold_min ) {
                 double lerp_t = distance_from_center > radius_threshold_max
@@ -208,23 +173,18 @@ main() {
                                       ( radius_threshold_max - radius_threshold_min );
                 lerp_t *= lerp_t;
                 lerp_t *= lerp_t;
-                double* value = &output[x + y * HEIGHT];
+                double* value = &heightmap[x + y * HEIGHT];
                 *value        = lerp( *value, -1, lerp_t );
             }
         }
     }
 
-    // for ( y = 0; y < HEIGHT; y++ ) {
-    //     for ( x = 0; x < WIDTH; x++ ) {
-    //         if ( output[x + y * WIDTH] > -0.99 ) {
-    //             int x_noise           = 5 * ( open_simplex_noise2( ctx, x, y ) + 1 );
-    //             int y_noise           = 5 * ( open_simplex_noise2( ctx, x, y ) + 1 );
-    //             output[x + y * WIDTH] = output[x + x_noise + ( y + y_noise ) * WIDTH];
-    //         }
-    //     }
-    // }
+    open_simplex_noise_free( ctx );
+}
 
-    typedef struct  {
+void
+write_to_image( double* heightmap, double* gradient_map, uint32_t* image2d ) {
+    typedef struct {
         union {
             uint32_t u32;
             struct {
@@ -236,9 +196,10 @@ main() {
         };
     } Color;
 
+    int x, y;
     for ( y = 0; y < HEIGHT; y++ ) {
         for ( x = 0; x < WIDTH; x++ ) {
-            double value = output[x + y * HEIGHT];
+            double value = heightmap[x + y * HEIGHT];
             // double value      = gradient_map[x + y * HEIGHT];
             double best_score = 0;
             int    best_biome = -1;
@@ -268,10 +229,34 @@ main() {
             image2d[x + y * WIDTH] = c.u32;
         }
     }
+}
 
+int
+main() {
+
+    // const int   voronoi_count = 20 * 20;
+    // jcv_point   voronoi_points[10];
+    // jcv_diagram voronoi_diagram;
+    // memset( &voronoi_diagram, 0, sizeof( jcv_diagram ) );
+    // jcv_diagram_generate( voronoi_count, voronoi_points, NULL, &voronoi_diagram );
+
+    int       x, y;
+    uint32_t* image2d      = malloc( HEIGHT * WIDTH * sizeof( uint32_t ) );
+    double*   heightmap    = malloc( HEIGHT * WIDTH * sizeof( double ) );
+    double*   gradient_map = malloc( HEIGHT * WIDTH * sizeof( double ) );
+
+    double persistence  = 3;
+    int    num_octaves  = 4;
+    int    feature_size = 100;
+    generate_heightmap( HEIGHT, WIDTH, feature_size, persistence, num_octaves, heightmap );
+    generate_gradient( heightmap, gradient_map, HEIGHT, WIDTH );
+    islandify_heightmap( heightmap );
+    write_to_image( heightmap, gradient_map, image2d );
     write_png_image( "test2d.png", (unsigned char*)image2d, WIDTH, HEIGHT, 1 );
+
     free( image2d );
-    free( output );
-    open_simplex_noise_free( ctx );
+    free( heightmap );
+    free( gradient_map );
+    // jcv_diagram_free( &voronoi_diagram );
     return 0;
 }

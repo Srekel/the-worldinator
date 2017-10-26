@@ -1,6 +1,9 @@
 {
     "files.associations": {
         "open-simplex-noise.h": "c",
-        "stb_image_write.h": "c"
+        "stb_image_write.h": "c",
+        "jc_voronoi.h": "c",
+        "windows.h": "c",
+        "errno.h": "c"
     }
 }
