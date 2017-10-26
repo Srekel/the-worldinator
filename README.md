@@ -5,6 +5,8 @@ Experiment with procedural world generation.
 
 Written in C or C-ish C++.
 
+Work in progress - do not expect particularly nice code. I'm doing this to learn and because it's fun. :)
+
 License
 -------
 
