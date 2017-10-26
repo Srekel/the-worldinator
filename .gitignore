@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+# VS stuff
+project/.vs/**
+project/Debug/**
+project/Release/**

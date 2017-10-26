@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "open-simplex-noise.h": "c",
+        "stb_image_write.h": "c"
+    }
+}
