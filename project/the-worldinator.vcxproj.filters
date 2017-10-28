@@ -13,12 +13,18 @@
     <ClCompile Include="..\src\main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\external\pcg-c-basic\pcg_basic.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\external\open-simplex-noise\open-simplex-noise.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\external\jc_voronoi\jc_voronoi.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\external\pcg-c-basic\pcg_basic.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

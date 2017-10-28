@@ -30,6 +30,7 @@ Libs used
 * https://github.com/nothings/stb/blob/master/stb_image_write.h
 * https://github.com/JCash/voronoi
 * https://github.com/smcameron/open-simplex-noise-in-c
+# https://github.com/imneme/pcg-c-basic
 
 
 References

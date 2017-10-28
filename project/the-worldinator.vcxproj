@@ -114,11 +114,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\src\external\open-simplex-noise\open-simplex-noise.c" />
+    <ClCompile Include="..\src\external\pcg-c-basic\pcg_basic.c" />
     <ClCompile Include="..\src\main.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\external\jc_voronoi\jc_voronoi.h" />
     <ClInclude Include="..\src\external\open-simplex-noise\open-simplex-noise.h" />
+    <ClInclude Include="..\src\external\pcg-c-basic\pcg_basic.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,3 +1,11 @@
+
+// ██╗███╗   ██╗ ██████╗██╗     ██╗   ██╗██████╗ ███████╗███████╗
+// ██║████╗  ██║██╔════╝██║     ██║   ██║██╔══██╗██╔════╝██╔════╝
+// ██║██╔██╗ ██║██║     ██║     ██║   ██║██║  ██║█████╗  ███████╗
+// ██║██║╚██╗██║██║     ██║     ██║   ██║██║  ██║██╔══╝  ╚════██║
+// ██║██║ ╚████║╚██████╗███████╗╚██████╔╝██████╔╝███████╗███████║
+// ╚═╝╚═╝  ╚═══╝ ╚═════╝╚══════╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝
+
 #include <stdio.h>
 
 #define STBI_WRITE_NO_STDIO
@@ -8,13 +16,24 @@
 #define JCV_REAL_TYPE double
 #define JCV_FABS fabs
 #define JCV_ATAN2 atan2
+#define JCV_SQRT sqrtl
 #include "jc_voronoi/jc_voronoi.h"
 
 #include "open-simplex-noise/open-simplex-noise.h"
+#include "pcg-c-basic/pcg_basic.h"
+
+#define PI 3.14159265358979323846
+#define RAND_MAX ( (double)INT32_MAX );
+
+//  ██████╗ ██████╗ ███╗   ██╗███████╗██╗ ██████╗
+// ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝
+// ██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗
+// ██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║
+// ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝
+//  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝
 
 #define WIDTH 1024
 #define HEIGHT 1024
-#define PI 3.14159265
 
 typedef struct {
     const char* name;
@@ -31,18 +50,12 @@ static BiomeRule biome_rules[] = {
 
 static int num_biome_rules = sizeof( biome_rules ) / sizeof( BiomeRule );
 
-static void
-png_write_callback( void* context, void* data, int size ) {
-    fwrite( data, 1, size, (FILE*)context );
-}
-
-static void
-write_png_image( const char* filename, unsigned char* pixels, int w, int h, int has_alpha ) {
-    FILE* f;
-    fopen_s( &f, filename, "wb" );
-    stbi_write_png_to_func( png_write_callback, f, w, h, 4, pixels, 0 );
-    fclose( f );
-}
+// ██╗   ██╗████████╗██╗██╗
+// ██║   ██║╚══██╔══╝██║██║
+// ██║   ██║   ██║   ██║██║
+// ██║   ██║   ██║   ██║██║
+// ╚██████╔╝   ██║   ██║███████╗
+//  ╚═════╝    ╚═╝   ╚═╝╚══════╝
 
 double
 lerp( double a, double b, double t ) {
@@ -57,9 +70,110 @@ lerp( double a, double b, double t ) {
 
 #define CLAMP( a, min, max ) a = ( a < min ? min : ( a > max ? max : a ) );
 
+//  ██████╗ ██████╗ ███╗   ██╗████████╗██╗███╗   ██╗███████╗███╗   ██╗████████╗
+// ██╔════╝██╔═══██╗████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝████╗  ██║╚══██╔══╝
+// ██║     ██║   ██║██╔██╗ ██║   ██║   ██║██╔██╗ ██║█████╗  ██╔██╗ ██║   ██║
+// ██║     ██║   ██║██║╚██╗██║   ██║   ██║██║╚██╗██║██╔══╝  ██║╚██╗██║   ██║
+// ╚██████╗╚██████╔╝██║ ╚████║   ██║   ██║██║ ╚████║███████╗██║ ╚████║   ██║
+//  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═══╝   ╚═╝
+
+generate_voronoi_points( int num_points, jcv_point* points, double width, double height ) {
+    for ( int i_point = 0; i_point < num_points; ++i_point ) {
+        jcv_point* point = &points[i_point];
+        point->x         = width * pcg32_random() / RAND_MAX;
+        point->y         = height * pcg32_random() / RAND_MAX;
+    }
+}
+
+jcv_real
+jcv_voronoi_util_area_of_sites( jcv_site* sites, int num_sites ) {
+    jcv_real area = 0;
+    for ( int i_site = 0; i_site < num_sites; ++i_site ) {
+        jcv_site* site = sites + i_site;
+
+        jcv_real             site_area = 0;
+        const jcv_graphedge* edge      = site->edges;
+        while ( edge != NULL ) {
+            site_area += ( site->p.x * ( edge->pos[0].y - edge->pos[1].y ) +
+                           edge->pos[0].x * ( edge->pos[1].y - site->p.y ) +
+                           edge->pos[1].x * ( site->p.y - edge->pos[0].y ) ) /
+                         2;
+
+            edge = edge->next;
+        }
+
+        area += site_area;
+    }
+
+    return area;
+}
+
+jcv_real
+jcv_voronoi_util_site_area( jcv_site* site ) {
+    return jcv_voronoi_util_area_of_sites( site, 1 );
+}
+
+void
+voronoi_shuffle_sites( jcv_site* array, int n ) {
+    if ( n > 1 ) {
+        for ( int i = n - 1; i > 0; i-- ) {
+            int      j    = (int)pcg32_boundedrand( i + 1 );
+            jcv_site temp = array[j];
+            array[j]      = array[i];
+            array[i]      = temp;
+        }
+    }
+}
+
 // void
-// generate_voronoi() {
+// generate_continents( jcv_diagram* diagram,
+//                      double       min_area,
+//                      double       max_area,
+//                      double       percent_water ) {
+
+//     const jcv_site* sites             = jcv_diagram_get_sites( diagram );
+//     double          total_area        = jcv_voronoi_util_area_of_sites( sites, diagram->numsites
+//     );
+//     double          water_area        = 0;
+//     int*            site_to_continent = malloc( diagram->numsites * sizeof( int ) );
+//     memset( site_to_continent, 0, diagram->numsites * sizeof( int ) );
+
+//     int num_assigned = 0;
+//     while ( water_area / total_area < percent_water ) {
+//         uint32_t index = pcg32_boundedrand( diagram->numsites );
+//         if ( site_to_continent[index] == 0 ) {
+//             site_to_continent[index] = 100;
+//             water_area += jcv_voronoi_util_site_area( sites + index );
+//             ++num_assigned;
+//         }
+//     }
+
+//     int continent_site_indices[256];
+//     while ( num_assigned < diagram->numsites ) {
+//         for ( int i = 0; i < diagram->numsites; ++i ) {
+//             if ( site_to_continent[i] == 0 ) {
+
+//                 continent_site_indices[0]    = i;
+//                 int    continent_size        = 1;
+//                 double continent_area        = jcv_voronoi_util_site_area( &sites[i] );
+//                 double wanted_continent_area = min_area + pcg32_random() / *( max_area - min_area
+//                 );
+//                 while ( continent_area < wanted_continent_area ) {
+//                     uint32_t site_index = pcg32_boundedrand( continent_size - 1 );
+//                 }
+//             }
+//         }
+//     }
 // }
+
+// ██╗  ██╗███████╗██╗ ██████╗ ██╗  ██╗████████╗███╗   ███╗ █████╗ ██████╗
+// ██║  ██║██╔════╝██║██╔════╝ ██║  ██║╚══██╔══╝████╗ ████║██╔══██╗██╔══██╗
+// ███████║█████╗  ██║██║  ███╗███████║   ██║   ██╔████╔██║███████║██████╔╝
+// ██╔══██║██╔══╝  ██║██║   ██║██╔══██║   ██║   ██║╚██╔╝██║██╔══██║██╔═══╝
+// ██║  ██║███████╗██║╚██████╔╝██║  ██║   ██║   ██║ ╚═╝ ██║██║  ██║██║
+// ╚═╝  ╚═╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝
+
+#pragma region Heightmap
 
 void
 generate_heightmap( int     height,
@@ -182,6 +296,28 @@ islandify_heightmap( double* heightmap ) {
     open_simplex_noise_free( ctx );
 }
 
+#pragma endregion Heightmap
+
+//  ██████╗ ██╗   ██╗████████╗██████╗ ██╗   ██╗████████╗
+// ██╔═══██╗██║   ██║╚══██╔══╝██╔══██╗██║   ██║╚══██╔══╝
+// ██║   ██║██║   ██║   ██║   ██████╔╝██║   ██║   ██║
+// ██║   ██║██║   ██║   ██║   ██╔═══╝ ██║   ██║   ██║
+// ╚██████╔╝╚██████╔╝   ██║   ██║     ╚██████╔╝   ██║
+//  ╚═════╝  ╚═════╝    ╚═╝   ╚═╝      ╚═════╝    ╚═╝
+
+static void
+png_write_callback( void* context, void* data, int size ) {
+    fwrite( data, 1, size, (FILE*)context );
+}
+
+static void
+write_png_image( const char* filename, unsigned char* pixels, int w, int h, int has_alpha ) {
+    FILE* f;
+    fopen_s( &f, filename, "wb" );
+    stbi_write_png_to_func( png_write_callback, f, w, h, 4, pixels, 0 );
+    fclose( f );
+}
+
 void
 write_to_image( double* heightmap, double* gradient_map, uint32_t* image2d ) {
     typedef struct {
@@ -231,16 +367,27 @@ write_to_image( double* heightmap, double* gradient_map, uint32_t* image2d ) {
     }
 }
 
+// ███╗   ███╗ █████╗ ██╗███╗   ██╗
+// ████╗ ████║██╔══██╗██║████╗  ██║
+// ██╔████╔██║███████║██║██╔██╗ ██║
+// ██║╚██╔╝██║██╔══██║██║██║╚██╗██║
+// ██║ ╚═╝ ██║██║  ██║██║██║ ╚████║
+// ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
+
 int
 main() {
-
-    // const int   voronoi_count = 20 * 20;
-    // jcv_point   voronoi_points[10];
     // jcv_diagram voronoi_diagram;
     // memset( &voronoi_diagram, 0, sizeof( jcv_diagram ) );
+    // jcv_rect voronoi_bounding_box;
+    // boundingBox.min.x         = 0;
+    // boundingBox.min.y         = 0;
+    // boundingBox.max.x         = WIDTH;
+    // boundingBox.max.y         = HEIGHT;
+    // const int  voronoi_count  = 20 * 20;
+    // jcv_point* voronoi_points = malloc( voronoi_count * sizeof( jcv_point ) );
+    // generate_voronoi_points( voronoi_count, voronoi_points, WIDTH, HEIGHT );
     // jcv_diagram_generate( voronoi_count, voronoi_points, NULL, &voronoi_diagram );
 
-    int       x, y;
     uint32_t* image2d      = malloc( HEIGHT * WIDTH * sizeof( uint32_t ) );
     double*   heightmap    = malloc( HEIGHT * WIDTH * sizeof( double ) );
     double*   gradient_map = malloc( HEIGHT * WIDTH * sizeof( double ) );
