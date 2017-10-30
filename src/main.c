@@ -125,46 +125,91 @@ voronoi_shuffle_sites( jcv_site* array, int n ) {
     }
 }
 
-// void
-// generate_continents( jcv_diagram* diagram,
-//                      double       min_area,
-//                      double       max_area,
-//                      double       percent_water ) {
+jcv_site*
+voronoi_get_neighbor( jcv_site* site, int* start_edge ) {
+    const jcv_graphedge* edge = site->edges;
+    for ( int i_edge = 0; i_edge < *start_edge; ++i_edge ) {
+        edge = edge->next;
+        if ( edge == NULL ) {
+            return NULL;
+        }
+    }
 
-//     const jcv_site* sites             = jcv_diagram_get_sites( diagram );
-//     double          total_area        = jcv_voronoi_util_area_of_sites( sites, diagram->numsites
-//     );
-//     double          water_area        = 0;
-//     int*            site_to_continent = malloc( diagram->numsites * sizeof( int ) );
-//     memset( site_to_continent, 0, diagram->numsites * sizeof( int ) );
+    while ( edge != NULL ) {
+        jcv_site* site_left  = jcv_halfedge_leftsite( edge );
+        jcv_site* site_right = jcv_halfedge_rightsite( edge );
+        if ( site_left != NULL && site_left != site ) {
+            assert( site_right == site );
+            return site_left;
+        }
 
-//     int num_assigned = 0;
-//     while ( water_area / total_area < percent_water ) {
-//         uint32_t index = pcg32_boundedrand( diagram->numsites );
-//         if ( site_to_continent[index] == 0 ) {
-//             site_to_continent[index] = 100;
-//             water_area += jcv_voronoi_util_site_area( sites + index );
-//             ++num_assigned;
-//         }
-//     }
+        if ( site_right != NULL && site_right != site ) {
+            assert( site_left == site );
+            return site_right;
+        }
 
-//     int continent_site_indices[256];
-//     while ( num_assigned < diagram->numsites ) {
-//         for ( int i = 0; i < diagram->numsites; ++i ) {
-//             if ( site_to_continent[i] == 0 ) {
+        edge = edge->next;
+        ++( *start_edge );
+    }
+}
 
-//                 continent_site_indices[0]    = i;
-//                 int    continent_size        = 1;
-//                 double continent_area        = jcv_voronoi_util_site_area( &sites[i] );
-//                 double wanted_continent_area = min_area + pcg32_random() / *( max_area - min_area
-//                 );
-//                 while ( continent_area < wanted_continent_area ) {
-//                     uint32_t site_index = pcg32_boundedrand( continent_size - 1 );
-//                 }
-//             }
-//         }
-//     }
-// }
+void
+generate_continents( jcv_diagram* diagram,
+                     double       min_area,
+                     double       max_area,
+                     double       percent_water ) {
+
+    const jcv_site* sites             = jcv_diagram_get_sites( diagram );
+    double          total_area        = jcv_voronoi_util_area_of_sites( sites, diagram->numsites );
+    double          water_area        = 0;
+    int*            site_to_continent = malloc( diagram->numsites * sizeof( int ) );
+    memset( site_to_continent, 0, diagram->numsites * sizeof( int ) );
+
+    int num_assigned = 0;
+    while ( water_area / total_area < percent_water ) {
+        uint32_t index = pcg32_boundedrand( diagram->numsites );
+        if ( site_to_continent[index] == 0 ) {
+            site_to_continent[index] = 100;
+            water_area += jcv_voronoi_util_site_area( sites + index );
+            ++num_assigned;
+        }
+    }
+
+    int curr_continent_id = 0;
+    int continent_site_indices[256];
+    while ( num_assigned < diagram->numsites ) {
+        for ( int i = 0; i < diagram->numsites; ++i ) {
+            if ( site_to_continent[i] == 0 ) {
+                // Found a free site+
+
+                ++curr_continent_id;
+                site_to_continent[i]      = curr_continent_id;
+                continent_site_indices[0] = i;
+                int    continent_size     = 1;
+                double continent_area     = jcv_voronoi_util_site_area( &sites[i] );
+                double wanted_continent_area =
+                  min_area + pcg32_random() * ( max_area - min_area ) / RAND_MAX;
+
+                while ( continent_area < wanted_continent_area ) {
+                    voronoi_shuffle_sites( continent_site_indices, continent_size );
+                    uint32_t  site_index = pcg32_boundedrand( continent_size - 1 );
+                    jcv_site* curr_site  = &sites[site_index];
+                    int       start_edge = 0;
+                    jcv_site* neighbor   = voronoi_get_neighbor( curr_site, &start_edge );
+                    while ( neighbor != NULL ) {
+                        int neighbor_index = neighbor - sites;
+                        if ( site_to_continent[neighbor_index] == 0 ) {
+                            site_to_continent[neighbor_index] = curr_continent_id;
+                        }
+                    }
+
+                    while ( neighbor_index >= 0 ) {
+                    }
+                }
+            }
+        }
+    }
+}
 
 // ██╗  ██╗███████╗██╗ ██████╗ ██╗  ██╗████████╗███╗   ███╗ █████╗ ██████╗
 // ██║  ██║██╔════╝██║██╔════╝ ██║  ██║╚══██╔══╝████╗ ████║██╔══██╗██╔══██╗
