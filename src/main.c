@@ -32,8 +32,8 @@
 // ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝
 //  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝
 
-#define WIDTH 1024
-#define HEIGHT 1024
+#define WIDTH 8192 / 1
+#define HEIGHT 8192 / 1
 
 typedef struct {
     const char* name;
@@ -69,6 +69,8 @@ lerp( double a, double b, double t ) {
 // };
 
 #define CLAMP( a, min, max ) a = ( a < min ? min : ( a > max ? max : a ) );
+#define MIN( a, b ) ( ( a ) < ( b ) ? ( a ) : ( b ) );
+#define MAX( a, b ) ( ( a ) > ( b ) ? ( a ) : ( b ) );
 
 //  ██████╗ ██████╗ ███╗   ██╗████████╗██╗███╗   ██╗███████╗███╗   ██╗████████╗
 // ██╔════╝██╔═══██╗████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝████╗  ██║╚══██╔══╝
@@ -203,8 +205,8 @@ generate_continents( jcv_diagram* diagram,
                         }
                     }
 
-                    while ( neighbor_index >= 0 ) {
-                    }
+                    // while ( neighbor_index >= 0 ) {
+                    // }
                 }
             }
         }
@@ -291,6 +293,9 @@ generate_gradient( double* heightmap, double* gradient_map, int height, int widt
     int sobel_filter_x[3][3] = { { -1, 0, 1 }, { -2, 0, 2 }, { -1, 0, 1 } };
     int sobel_filter_y[3][3] = { { -1, -2, -1 }, { 0, 0, 0 }, { 1, 2, 1 } };
 
+    double min = 1000;
+    double max = -1000;
+
     int x, y, x2, y2;
     for ( y = 1; y < height - 1; y++ ) {
         for ( x = 1; x < width - 1; x++ ) {
@@ -304,8 +309,18 @@ generate_gradient( double* heightmap, double* gradient_map, int height, int widt
                       sobel_filter_y[x2 + 1][y2 + 1] * heightmap[x + x2 + ( y + y2 ) * width];
                 }
             }
-            gradient_map[x + y * width] =
-              sqrt( pixel_value_x * pixel_value_x + pixel_value_y * pixel_value_y );
+            double gradient = sqrt( pixel_value_x * pixel_value_x + pixel_value_y * pixel_value_y );
+            gradient_map[x + y * width] = gradient;
+            min                         = MIN( min, gradient );
+            max                         = MAX( max, gradient );
+        }
+    }
+
+    for ( y = 1; y < height - 1; y++ ) {
+        for ( x = 1; x < width - 1; x++ ) {
+            double gradient = gradient_map[x + y * width];
+            gradient        = ( gradient - min ) / ( max - min );
+            gradient_map[x + y * width] = gradient;
         }
     }
 }
@@ -314,13 +329,14 @@ void
 islandify_heightmap( double* heightmap ) {
     struct osn_context* ctx;
     open_simplex_noise( 46512, &ctx );
-    int x, y;
+    double x, y;
+    double lol = 50 * HEIGHT / 1024;
     for ( y = 0; y < HEIGHT; y++ ) {
         for ( x = 0; x < WIDTH; x++ ) {
             double distance_from_center = sqrt( fabs( x - WIDTH / 2 ) * fabs( x - WIDTH / 2 ) +
                                                 fabs( y - WIDTH / 2 ) * fabs( y - WIDTH / 2 ) );
             // double angle                = atan2( y - HEIGHT / 2, x - WIDTH / 2);
-            double radius_noise = open_simplex_noise2( ctx, (double)x / 50, (double)y / 50 );
+            double radius_noise         = open_simplex_noise2( ctx, x / lol, y / lol );
             double radius_threshold_min = HEIGHT * ( radius_noise * 0.1 + 0.3 );
             double radius_threshold_max = HEIGHT * ( radius_noise * 0.1 + 0.4 );
             // heightmap[x + y * HEIGHT]      = radius_noise;
@@ -332,7 +348,7 @@ islandify_heightmap( double* heightmap ) {
                                       ( radius_threshold_max - radius_threshold_min );
                 lerp_t *= lerp_t;
                 lerp_t *= lerp_t;
-                double* value = &heightmap[x + y * HEIGHT];
+                double* value = &heightmap[(int)( x + y * HEIGHT )];
                 *value        = lerp( *value, -1, lerp_t );
             }
         }
@@ -402,9 +418,9 @@ write_to_image( double* heightmap, double* gradient_map, uint32_t* image2d ) {
             BiomeRule rule = biome_rules[best_biome];
             Color     c;
             c.u32 = rule.color;
-            c.abgr.b *= ( gradient_map[x + y * HEIGHT] + 1 ) * 1.75;
-            c.abgr.g *= ( gradient_map[x + y * HEIGHT] + 1 ) * 1.75;
-            c.abgr.a *= ( gradient_map[x + y * HEIGHT] + 1 ) * 1.75;
+            c.abgr.b *= ( gradient_map[x + y * HEIGHT] + 1 ) * 1;
+            c.abgr.g *= ( gradient_map[x + y * HEIGHT] + 1 ) * 1;
+            c.abgr.a *= ( gradient_map[x + y * HEIGHT] + 1 ) * 1;
             uint32_t rgb           = 0x010101 * ( uint32_t )( ( value + 1 ) * 127.5 );
             image2d[x + y * WIDTH] = ( 0x0ff << 24 ) | ( rgb );
             image2d[x + y * WIDTH] = c.u32;
@@ -439,7 +455,7 @@ main() {
 
     double persistence  = 3;
     int    num_octaves  = 4;
-    int    feature_size = 100;
+    int    feature_size = 100 * HEIGHT / 1024;
     generate_heightmap( HEIGHT, WIDTH, feature_size, persistence, num_octaves, heightmap );
     generate_gradient( heightmap, gradient_map, HEIGHT, WIDTH );
     islandify_heightmap( heightmap );
